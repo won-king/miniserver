@@ -5,6 +5,8 @@ import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.SocketAddress;
+import java.nio.channels.SelectionKey;
+import java.nio.channels.Selector;
 import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
 
@@ -15,47 +17,78 @@ public class Acceptor implements Runnable{
     private static final int PORT=8080;
 
     private ServerSocketChannel server;
-    private SocketAddress address;
     private volatile boolean running;
-    private static Acceptor instance;
+    private static Acceptor instance=null;
+    private volatile Dispatcher dispatcher;
 
-    private Acceptor(){
+    //时刻牢记Java的内存模型，这个类是个线程类，表明变量是存在本地缓存的
+    private volatile Selector selector;
+
+    public Acceptor(Dispatcher dispatcher){
+        this.dispatcher=dispatcher;
+        if(dispatcher.isRunning()){
+            running=true;
+        }
+        if(instance==null){
+            try {
+                this.server=ServerSocketChannel.open();
+                this.server.socket().bind(new InetSocketAddress(PORT));
+                this.server.socket().setReuseAddress(true);
+                this.server.configureBlocking(false);
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+        instance=this;
+    }
+
+    public Acceptor(Selector selector){
+        this.selector=selector;
+        if(instance==null){
+            try {
+                this.server=ServerSocketChannel.open();
+                this.server.socket().bind(new InetSocketAddress(PORT));
+                this.server.socket().setReuseAddress(true);
+                this.server.configureBlocking(false);
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
         running=true;
         instance=this;
     }
 
-    private SocketChannel accept() throws IOException{
-        while(running){
-            return server.accept();
-        }
-        return null;
-    }
-
-    public static void start() throws IOException{
-        if(instance==null){
-            synchronized (Acceptor.class){
-                if(instance==null){
-                    instance=new Acceptor();
-                }
-            }
-        }
-        instance.server=ServerSocketChannel.open();
-        instance.server.socket().bind(new InetSocketAddress(PORT));
-        instance.server.socket().setReuseAddress(true);
-        instance.server.configureBlocking(false);
-    }
-
-    public static void stop(){
+    public void stop(){
         if(instance!=null){
             instance.running=false;
         }
     }
 
     public void run() {
+        while (running){
+            try {
+                SocketChannel socket=server.accept();
+                if(socket!=null){
+                    System.out.println("-----client access-----");
+                    socket.configureBlocking(false);
+                    //因为dispatcher是一个线程，所以当这个线程在select的时候阻塞住了之后，对它任何方法的调用都将阻塞住,包括访问它的私有域
+                    //除非直接调用selector.wakeup()
+                    //dispatcher.register(socket, SelectionKey.OP_READ);
+                    //dispatcher.wakeup();
+
+                    selector.wakeup();
+                    socket.register(selector, SelectionKey.OP_READ);
+                }
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+
+        }
         try {
-            SocketChannel socket=accept();
+            server.close();
         } catch (IOException e) {
             e.printStackTrace();
         }
+        System.out.println("server stopped");
     }
 }
