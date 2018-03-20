@@ -124,6 +124,7 @@ public class Dispatcher implements Runnable {
                 e.printStackTrace();
             }
         }
+        //手动释放内存
         selector=null;
     }
 
