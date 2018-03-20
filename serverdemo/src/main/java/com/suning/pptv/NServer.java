@@ -8,9 +8,6 @@ import java.nio.channels.Selector;
  */
 public class NServer {
 
-    //这里加volatile也没用，自行百度volatile用法详解
-    //public volatile Selector selector=null;
-
     public static void main(String[] args){
         Selector selector=null;
         try {
