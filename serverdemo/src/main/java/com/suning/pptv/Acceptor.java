@@ -21,7 +21,7 @@ public class Acceptor implements Runnable{
     private static Acceptor instance=null;
     private volatile Dispatcher dispatcher;
 
-    //时刻牢记Java的内存模型，这个类是个线程类，表明变量是存在本地缓存的
+    //时刻牢记Java的内存模型，这个类是个任务类，并且被多个线程共享
     private volatile Selector selector;
 
     public Acceptor(Dispatcher dispatcher){
@@ -71,7 +71,7 @@ public class Acceptor implements Runnable{
                 if(socket!=null){
                     System.out.println("-----client access-----");
                     socket.configureBlocking(false);
-                    //因为dispatcher是一个线程，所以当这个线程在select的时候阻塞住了之后，对它任何方法的调用都将阻塞住,包括访问它的私有域
+                    //因为dispatcher是一个线程，所以当这个线程在select的时候阻塞住了之后
                     //除非直接调用selector.wakeup()
                     //dispatcher.register(socket, SelectionKey.OP_READ);
                     //dispatcher.wakeup();
