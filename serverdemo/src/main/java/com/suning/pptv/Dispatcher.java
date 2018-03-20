@@ -128,6 +128,7 @@ public class Dispatcher implements Runnable {
         selector=null;
     }
 
+    //这里分发的时候其实还有一个策略，就是netty的主-从reactor模型,将SocketChannel从主reactor摘除后重新注册到从reactor上，负责剩下的读写分发工作
     public void dispatch(SelectionKey key) throws IOException{
         if(key.isValid()){
             //这里accept放到一个单独的acceptor线程中执行
