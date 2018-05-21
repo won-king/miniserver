@@ -8,8 +8,8 @@
 *.project
 *.classpath
 
-
-.idea/
+target/*
+*/.idea/*
 .settings/*
 out/*
 bin/*
