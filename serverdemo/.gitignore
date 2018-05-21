@@ -8,6 +8,7 @@
 *.project
 *.classpath
 *.pptx
+*.xml
 
 target/*
 */.idea/*
