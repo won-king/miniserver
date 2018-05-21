@@ -7,9 +7,10 @@
 *.metadata
 *.project
 *.classpath
+*.pptx
 
 target/*
-*/.idea/*
+**/.idea/*
 .settings/*
 out/*
 bin/*
