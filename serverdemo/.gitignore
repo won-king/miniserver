@@ -10,7 +10,8 @@
 *.pptx
 
 target/*
-**/.idea/*
+*/.idea/*
+.idea/
 .settings/*
 out/*
 bin/*
