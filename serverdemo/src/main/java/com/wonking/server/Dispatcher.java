@@ -1,10 +1,15 @@
 package com.wonking.server;
 
 import java.io.IOException;
-import java.nio.channels.*;
+import java.nio.channels.ClosedChannelException;
+import java.nio.channels.SelectionKey;
+import java.nio.channels.Selector;
+import java.nio.channels.SocketChannel;
 import java.util.Iterator;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.locks.Condition;
+import java.util.concurrent.locks.Lock;
 
 /**
  * Created by kewangk on 2017/10/28.
@@ -14,6 +19,8 @@ public class Dispatcher implements Runnable {
     private boolean started;
     private ReadWorker readWorker;
     private WriteWorker writeWorker;
+    private Lock selectLock;
+    private Condition condition;
 
     //打算把单个读写线程换成线程池，后来我发现问题远比我想象的复杂，就没有实现，这个我后面会继续下去，直到达到我想要的功能。
     private ExecutorService readerPool;
@@ -38,10 +45,12 @@ public class Dispatcher implements Runnable {
         started=true;
     }
 
-    public Dispatcher(Selector selector, ReadWorker reader, WriteWorker writer){
+    public Dispatcher(Selector selector, ReadWorker reader, WriteWorker writer, Lock lock, Condition condition){
         this.selector=selector;
         this.readWorker=reader;
         this.writeWorker=writer;
+        this.selectLock=lock;
+        this.condition=condition;
         started=true;
     }
 
@@ -59,10 +68,16 @@ public class Dispatcher implements Runnable {
 
     public void run() {
         while (started){
+            selectLock.lock();
             try {
                 //selector.select(1000*3);
                 //selector.selectNow();
                 //这里即使阻塞住也没关系，当他没事的时候阻塞住正是我想要的效果，因为当有事来了会有人叫醒他
+                try {
+                    condition.await();
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
                 selector.select();
 
                 //JDK文档里有强调在遍历已选择键集的过程中可能抛出ConcurrentModificationException异常，所以需要进行适当的同步操作
@@ -79,6 +94,7 @@ public class Dispatcher implements Runnable {
                 Set<SelectionKey> selectedKeys=selector.selectedKeys();
                 //System.out.println("key size->"+keys.size()+"  selected keys->"+selectedKeys.size());
 
+                System.out.println("-----select once-----");
                 Iterator<SelectionKey> iterator=selectedKeys.iterator();
                 while (iterator.hasNext()){
                     SelectionKey key=iterator.next();
@@ -104,13 +120,15 @@ public class Dispatcher implements Runnable {
                         key.cancel();
                     }
                 }
-                try {
+                /*try {
                     Thread.sleep(100);
                 } catch (InterruptedException e) {
                     e.printStackTrace();
-                }
+                }*/
             } catch (IOException e) {
                 e.printStackTrace();
+            }finally {
+                selectLock.unlock();
             }
         }
         System.out.println("dispatcher stop");

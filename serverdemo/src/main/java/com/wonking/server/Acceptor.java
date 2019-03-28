@@ -6,6 +6,8 @@ import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
 import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
+import java.util.concurrent.locks.Condition;
+import java.util.concurrent.locks.Lock;
 
 /**
  * Created by kewangk on 2017/10/24.
@@ -17,6 +19,8 @@ public class Acceptor implements Runnable{
     private volatile boolean running;
     private static Acceptor instance=null;
     private volatile Dispatcher dispatcher;
+    private volatile Lock selectLock;
+    private Condition condition;
 
     //时刻牢记Java的内存模型，这个类是个任务类，并且被多个线程共享
     private volatile Selector selector;
@@ -39,8 +43,10 @@ public class Acceptor implements Runnable{
         instance=this;
     }
 
-    public Acceptor(Selector selector){
+    public Acceptor(Selector selector, Lock lock, Condition condition){
         this.selector=selector;
+        this.selectLock=lock;
+        this.condition=condition;
         if(instance==null){
             try {
                 this.server=ServerSocketChannel.open();
@@ -63,6 +69,7 @@ public class Acceptor implements Runnable{
 
     public void run() {
         while (running){
+            selectLock.lock();
             try {
                 SocketChannel socket=server.accept();
                 if(socket!=null){
@@ -73,11 +80,15 @@ public class Acceptor implements Runnable{
                     //dispatcher.register(socket, SelectionKey.OP_READ);
                     //dispatcher.wakeup();
 
-                    selector.wakeup();
+                    //selector.wakeup();
                     socket.register(selector, SelectionKey.OP_READ);
+                    System.out.println("-----accept success-----");
+                    condition.signal();
                 }
             } catch (IOException e) {
                 e.printStackTrace();
+            }finally {
+                selectLock.unlock();
             }
 
         }
